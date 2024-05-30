@@ -39,6 +39,19 @@ fn main() {
     {
         println!("cargo:rustc-link-lib=openblas");
     }
+    #[cfg(feature = "hipblas")]
+    {
+        println!("cargo:rustc-link-lib=hipblas");
+        println!("cargo:rustc-link-lib=rocblas");
+        println!("cargo:rustc-link-lib=amdhip64");
+        cfg_if::cfg_if! {
+            if #[cfg(target_os = "windows")] {
+                todo!()
+            } else {
+                println!("cargo:rustc-link-search=/opt/rocm/lib");
+            }
+        }
+    }
     #[cfg(feature = "cuda")]
     {
         println!("cargo:rustc-link-lib=cublas");
@@ -124,6 +137,12 @@ fn main() {
 
     if cfg!(feature = "cuda") {
         config.define("WHISPER_CUDA", "ON");
+    }
+
+    if cfg!(feature = "hipblas") {
+        config.define("WHISPER_HIPBLAS", "ON");
+        config.define("CMAKE_C_COMPILER", "hipcc");
+        config.define("CMAKE_CXX_COMPILER", "hipcc");
     }
 
     if cfg!(feature = "openblas") {
