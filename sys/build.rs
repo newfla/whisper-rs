@@ -46,7 +46,8 @@ fn main() {
         println!("cargo:rustc-link-lib=amdhip64");
         cfg_if::cfg_if! {
             if #[cfg(target_os = "windows")] {
-                todo!()
+                let hip_path = PathBuf::from(env::var("HIP_PATH").unwrap()).join("lib");
+                println!("cargo:rustc-link-search={}", hip_path.display());
             } else {
                 println!("cargo:rustc-link-search=/opt/rocm/lib");
             }
@@ -140,9 +141,14 @@ fn main() {
     }
 
     if cfg!(feature = "hipblas") {
-        config.define("WHISPER_HIPBLAS", "ON");
-        config.define("CMAKE_C_COMPILER", "hipcc");
-        config.define("CMAKE_CXX_COMPILER", "hipcc");
+        if cfg!(target_os = "windows") {
+            let hip_path = PathBuf::from(env::var("HIP_PATH").unwrap());
+            let cmake = hip_path.join("lib").join("cmake");
+            config.define("CMAKE_PREFIX_PATH", cmake.clone().join("hip").to_str().unwrap().to_owned() +";" + cmake.clone().join("hipblas").to_str().unwrap() + ";" + cmake.join("rocblas").to_str().unwrap());
+        } else {
+            config.define("CMAKE_C_COMPILER", "hipcc");
+            config.define("CMAKE_CXX_COMPILER", "hipcc");
+        }
     }
 
     if cfg!(feature = "openblas") {
