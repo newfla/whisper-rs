@@ -39,17 +39,26 @@ fn main() {
     {
         println!("cargo:rustc-link-lib=openblas");
     }
+
     #[cfg(feature = "hipblas")]
     {
         println!("cargo:rustc-link-lib=hipblas");
         println!("cargo:rustc-link-lib=rocblas");
         println!("cargo:rustc-link-lib=amdhip64");
+        
         cfg_if::cfg_if! {
             if #[cfg(target_os = "windows")] {
-                let hip_path = PathBuf::from(env::var("HIP_PATH").unwrap()).join("lib");
-                println!("cargo:rustc-link-search={}", hip_path.display());
+                panic!("Not supported yet!!!")
             } else {
-                println!("cargo:rustc-link-search=/opt/rocm/lib");
+                println!("cargo:rerun-if-env-changed=HIP_PATH");
+
+                let hip_path = match env::var("HIP_PATH") {
+                    Ok(path) =>PathBuf::from(path),
+                    Err(_) => PathBuf::from("/opt/rocm"),
+                };
+                let hip_lib_path = hip_path.join("lib");
+
+                println!("cargo:rustc-link-search={}",hip_lib_path.display());
             }
         }
     }
@@ -141,14 +150,13 @@ fn main() {
     }
 
     if cfg!(feature = "hipblas") {
-        if cfg!(target_os = "windows") {
-            let hip_path = PathBuf::from(env::var("HIP_PATH").unwrap());
-            let cmake = hip_path.join("lib").join("cmake");
-            config.define("CMAKE_PREFIX_PATH", cmake.clone().join("hip").to_str().unwrap().to_owned() +";" + cmake.clone().join("hipblas").to_str().unwrap() + ";" + cmake.join("rocblas").to_str().unwrap());
-        } else {
-            config.define("CMAKE_C_COMPILER", "hipcc");
-            config.define("CMAKE_CXX_COMPILER", "hipcc");
+        println!("cargo:rerun-if-env-changed=AMDGPU_TARGETS");
+        if let Ok(gpu_targets) = env::var("HIP_PATH") {
+            config.define("AMDGPU_TARGETS", gpu_targets);
         }
+        config.define("WHISPER_HIPBLAS", "ON");
+        config.define("CMAKE_C_COMPILER", "hipcc");
+        config.define("CMAKE_CXX_COMPILER", "hipcc");
     }
 
     if cfg!(feature = "openblas") {
